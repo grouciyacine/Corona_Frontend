@@ -2,9 +2,10 @@ import { motion } from 'framer-motion';
 
 type Props = {
     text: string;
+    onClick?: any
 };
 
-const Button = ({ text }: Props) => {
+const Button = ({ text,onClick }: Props) => {
     const buttonVariants = {
         hover: { scale: 1.1, backgroundColor: '#FF87C2' },
     };
@@ -15,7 +16,7 @@ const Button = ({ text }: Props) => {
             variants={buttonVariants}
             whileHover="hover"
         >
-            <button className="w-full cursor-pointer h-full bg-transparent text-lg">{text}</button>
+            <button onClick={onClick} className="w-full cursor-pointer h-full bg-transparent text-lg">{text}</button>
         </motion.div>
     );
 };
