@@ -2,10 +2,22 @@ import { motion } from "framer-motion";
 import { RiAdminLine } from "react-icons/ri";
 import { MdOutlineMiscellaneousServices } from "react-icons/md";
 import { AiOutlineHome } from "react-icons/ai";
-import { Link } from "react-router-dom"; // Import Link from React Router
-import { AiOutlineLogin } from "react-icons/ai";
+import { AiOutlineLogin, AiOutlineLogout } from "react-icons/ai";
+import { Link, useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "../store"; // adjust path if needed
+import { logout } from "../store/userSlice"; // adjust path
 
 function Navbar() {
+    const user = useSelector((state: RootState) => state.user);
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        dispatch(logout());
+        navigate("/"); // redirect to home after logout
+    };
+
     const navItems = [
         { 
             icon: <AiOutlineHome size={20} />, 
@@ -22,12 +34,17 @@ function Navbar() {
             text: "Administrateur",
             path: "/Admin"
         },
-        { 
-            icon: <AiOutlineLogin  size={20} />, 
-            text: "Login",
-            path: "/Login"
-        },
-
+        user.nomUtilisateur
+            ? {
+                icon: <AiOutlineLogout size={20} />,
+                text: "Logout",
+                action: handleLogout // instead of path
+            }
+            : {
+                icon: <AiOutlineLogin size={20} />,
+                text: "Login",
+                path: "/Login"
+            }
     ];
 
     return (
@@ -61,22 +78,31 @@ function Navbar() {
                         {navItems.map((item, index) => (
                             <motion.div
                                 key={item.text}
-                                className="relative group"
+                                className="relative group cursor-pointer"
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.1 + 0.3 }}
+                                onClick={item.action} // only works for logout
                             >
-                                <Link
-                                    to={item.path}
-                                    className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
-                                >
-                                    <motion.span whileHover={{ scale: 1.1 }}>
-                                        {item.icon}
-                                    </motion.span>
-                                    <span className="text-lg font-medium">{item.text}</span>
-                                </Link>
+                                {item.path ? (
+                                    <Link
+                                        to={item.path}
+                                        className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+                                    >
+                                        <motion.span whileHover={{ scale: 1.1 }}>
+                                            {item.icon}
+                                        </motion.span>
+                                        <span className="text-lg font-medium">{item.text}</span>
+                                    </Link>
+                                ) : (
+                                    <div className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
+                                        <motion.span whileHover={{ scale: 1.1 }}>
+                                            {item.icon}
+                                        </motion.span>
+                                        <span className="text-lg font-medium">{item.text}</span>
+                                    </div>
+                                )}
 
-                                {/* Animated underline */}
                                 <motion.div
                                     className="absolute bottom-0 left-0 w-full h-px bg-[#FF6CAB]"
                                     initial={{ scaleX: 0 }}

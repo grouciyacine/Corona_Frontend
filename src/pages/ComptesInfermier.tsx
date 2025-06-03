@@ -1,64 +1,117 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaEdit, FaTrash } from 'react-icons/fa';
+import { djangoAPI } from '../makeRequest';
+
+type Infirmier = {
+  id: number;
+  nomUtilisateur: string;
+  email: string;
+  password: string;
+};
 
 const ComptesInfermier = () => {
-  const [infirmiers, setInfirmiers] = useState([
-    { id: 1, nom: 'Amine B.', email: 'amine@example.com', password: 'pass123' },
-    { id: 2, nom: 'Sara K.', email: 'sara@example.com', password: 'password' },
-  ]);
+  const [infirmiers, setInfirmiers] = useState<Infirmier[]>([]);
   const [search, setSearch] = useState('');
-  const [formData, setFormData] = useState({ nom: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ nom: '', password: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [currentInfirmier, setCurrentInfirmier] = useState<Infirmier | null>(null);
+
+  const makeRequest = async (
+    method: 'get' | 'post' | 'put' | 'delete',
+    url: string,
+    data: any = null
+  ) => {
+    try {
+      const response = await djangoAPI({ method, url, data });
+      return response.data;
+    } catch (error) {
+      console.error('Request failed:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const fetchInfirmiers = async () => {
+      const data = await makeRequest('get', '/infirmiers/');
+      if (data) setInfirmiers(data);
+    };
+    fetchInfirmiers();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      setInfirmiers(prev =>
-        prev.map(inf =>
-          inf.id === editingId ? { ...inf, ...formData } : inf
-        )
-      );
-      setEditingId(null);
+
+    if (editingId !== null && currentInfirmier) {
+      // Update mode: Update both name and password
+      // Use existing values if fields are empty
+      const payload = {
+        nomUtilisateur: formData.nom.trim() || currentInfirmier.nomUtilisateur,
+        password: formData.password.trim() || currentInfirmier.password,
+      };
+      
+      const updated = await makeRequest('put', `/infirmiers/${editingId}/modifier/`, payload);
+      if (updated) {
+        setInfirmiers(prev =>
+          prev.map(inf => 
+            inf.id === editingId ? { 
+              ...inf, 
+              nomUtilisateur: payload.nomUtilisateur,
+              password: payload.password
+            } : inf
+          )
+        );
+        setEditingId(null);
+        setCurrentInfirmier(null);
+        setFormData({ nom: '', password: '' });
+      }
     } else {
-      setInfirmiers(prev => [
-        ...prev,
-        { id: Date.now(), ...formData },
-      ]);
+      // Create mode: Require both fields
+      if (!formData.nom.trim() || !formData.password.trim()) return;
+      
+      const payload = {
+        nomUtilisateur: formData.nom,
+        password: formData.password,
+        email: `${formData.nom.replace(/\s+/g, '').toLowerCase()}@infirmier.com`
+      };
+      
+      const created = await makeRequest('post', '/infirmiers/creer/', payload);
+      if (created) {
+        setInfirmiers(prev => [...prev, created]);
+        setFormData({ nom: '', password: '' });
+      }
     }
-    setFormData({ nom: '', email: '', password: '' });
   };
 
   const handleEdit = (id: number) => {
     const infirmier = infirmiers.find(inf => inf.id === id);
     if (infirmier) {
-      setFormData({ nom: infirmier.nom, email: infirmier.email, password: infirmier.password });
+      setCurrentInfirmier(infirmier);
+      setFormData({
+        nom: infirmier.nomUtilisateur,
+        password: '' // Never show actual password
+      });
       setEditingId(id);
     }
   };
 
-  const handleDelete = (id: number) => {
-    setInfirmiers(prev => prev.filter(inf => inf.id !== id));
+  const handleDelete = async (id: number) => {
+    const confirmDelete = window.confirm('Êtes-vous sûr de vouloir supprimer cet infirmier ?');
+    if (!confirmDelete) return;
+
+    const deleted = await makeRequest('delete', `/infirmiers/${id}/supprimer/`);
+    if (deleted !== null) {
+      setInfirmiers(prev => prev.filter(inf => inf.id !== id));
+    }
   };
 
   const filteredInfirmiers = infirmiers.filter(inf =>
-    inf.nom.toLowerCase().includes(search.toLowerCase()) ||
-    inf.email.toLowerCase().includes(search.toLowerCase())
+    `${inf.nomUtilisateur || ''}`.toLowerCase().includes(search.toLowerCase())
   );
-
-  useEffect(() => {
-    if (
-      formData.nom.trim() === '' &&
-      formData.email.trim() === '' &&
-      formData.password.trim() === ''
-    ) {
-      setEditingId(null);
-    }
-  }, [formData]);
 
   return (
     <div className="text-black min-h-screen p-6 bg-gradient-to-br from-blue-50 to-purple-100">
@@ -74,44 +127,37 @@ const ComptesInfermier = () => {
           <input
             type="text"
             name="nom"
-            placeholder="Nom"
+            placeholder={editingId ? "Nom (laisser vide pour garder actuel)" : "Nom"}
             value={formData.nom}
             onChange={handleChange}
             className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#7366FF]"
-            required
+            required={!editingId}
           />
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#7366FF]"
-            required
-          />
+          
           <input
             type="password"
             name="password"
-            placeholder="Mot de passe"
+            placeholder={editingId ? "Mot de passe" : "Mot de passe"}
             value={formData.password}
             onChange={handleChange}
             className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#7366FF]"
-            required
+            required={!editingId}
           />
+          
           <motion.button
             whileHover={{ scale: 1.05 }}
             type="submit"
             disabled={
-              !formData.nom.trim() ||
-              !formData.email.trim() ||
-              !formData.password.trim()
+              editingId 
+                ? false // Always enabled in edit mode since we keep existing values
+                : !formData.nom.trim() || !formData.password.trim()
             }
             className={`${
-              !formData.nom.trim() ||
-              !formData.email.trim() ||
-              !formData.password.trim()
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-[#7366FF] hover:bg-[#5e53d4]'
+              editingId 
+                ? 'bg-[#7366FF] hover:bg-[#5e53d4]'
+                : !formData.nom.trim() || !formData.password.trim()
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-[#7366FF] hover:bg-[#5e53d4]'
             } text-white px-6 py-2 rounded-lg font-semibold`}
           >
             {editingId ? 'Modifier' : 'Créer'}
@@ -120,7 +166,7 @@ const ComptesInfermier = () => {
 
         <input
           type="text"
-          placeholder="Recherche par nom ou email"
+          placeholder="Recherche par nom"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full mb-4 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#7366FF]"
@@ -149,7 +195,7 @@ const ComptesInfermier = () => {
               className="bg-gray-100 p-4 rounded-lg flex items-center justify-between shadow-md"
             >
               <div>
-                <p className="font-semibold text-lg text-gray-700">{inf.nom}</p>
+                <p className="font-semibold text-lg text-gray-700">{inf.nomUtilisateur}</p>
                 <p className="text-sm text-gray-500">{inf.email}</p>
               </div>
               <div className="flex gap-3">

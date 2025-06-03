@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { djangoAPI } from '../makeRequest'; // <-- Adjust path if needed
+import { useDispatch } from 'react-redux';
+import { setUser } from '../store/userSlice'; // Adjust path if needed
 
 const inputVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -22,10 +25,10 @@ const shakeAnimation = {
 };
 
 const LoginPage = () => {
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     nomUtilisateur: '',
     motDePasse: '',
-    role: 'Chef de service',
   });
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,17 +45,26 @@ const LoginPage = () => {
     setError(false);
 
     try {
-      if (formData.nomUtilisateur === 'admin' && formData.motDePasse === 'password') {
-        navigate('/');
+      const response = await djangoAPI.post('/login/', {
+        nomUtilisateur: formData.nomUtilisateur,
+        motDePasse: formData.motDePasse,
+      });
+
+      if (response.data.success) {
+        const { role, id, nomUtilisateur } = response.data;
+        dispatch(setUser({ nomUtilisateur, id, role }));
+        navigate('/'); // Or navigate(`/dashboard/${role.toLowerCase()}`) for role-based routing
       } else {
         setError(true);
       }
-    } catch {
+    } catch (error) {
+      console.error('Login error:', error);
       setError(true);
     }
 
     setLoading(false);
   };
+  
 
   return (
     <div className="text-black min-h-screen bg-gradient-to-br from-[#FF6CAB] to-[#7366FF] flex items-center justify-center p-4">
@@ -85,20 +97,7 @@ const LoginPage = () => {
           </motion.div>
         ))}
 
-        <motion.div custom={2} variants={inputVariants}>
-          <label htmlFor="role" className="block text-gray-700 font-medium mb-1">
-            Rôle
-          </label>
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#7366FF] focus:border-transparent"
-          >
-            <option value="Chef de service">Chef de service</option>
-            <option value="Infirmier">Infirmier</option>
-          </select>
-        </motion.div>
+
 
         {error && <div className="text-red-600 text-center font-medium">Nom d'utilisateur ou mot de passe incorrect</div>}
 
@@ -108,9 +107,8 @@ const LoginPage = () => {
           whileHover="hover"
           whileTap="tap"
           disabled={loading}
-          className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition-colors duration-300 ${
-            loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#7366FF] hover:bg-[#5a4ddb]'
-          }`}
+          className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition-colors duration-300 ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#7366FF] hover:bg-[#5a4ddb]'
+            }`}
         >
           {loading ? 'Connexion...' : 'Se connecter'}
         </motion.button>

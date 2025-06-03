@@ -6,6 +6,7 @@ import Patients from './pages/Patients';
 import LoginPage from './pages/LoginPage';
 import Admin from './pages/Admin';
 import ComptesInfermier from './pages/ComptesInfermier';
+
 export default function App() {
   return (
     <BrowserRouter>
